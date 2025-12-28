@@ -1,0 +1,24 @@
+[
+  {
+    "model": "courses.lesson",
+    "pk": 1,
+    "fields": {
+      "title": "Введение в Python",
+      "description": "Первые шаги в Python",
+      "preview": null,
+      "video_link": "https://youtube.com/lesson1",
+      "course": 1
+    }
+  },
+  {
+    "model": "courses.lesson",
+    "pk": 2,
+    "fields": {
+      "title": "Установка Django",
+      "description": "Как установить и настроить Django",
+      "preview": null,
+      "video_link": "https://youtube.com/lesson2",
+      "course": 1
+    }
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "model": "courses.course",
+    "pk": 1,
+    "fields": {
+      "title": "Python для начинающих",
+      "preview": null,
+      "description": "Основы программирования на Python"
+    }
+  },
+  {
+    "model": "courses.course",
+    "pk": 2,
+    "fields": {
+      "title": "Django REST Framework",
+      "preview": null,
+      "description": "Создание API на Django"
+    }
+  }
+]
