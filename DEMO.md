@@ -1,13 +1,11 @@
-1. DEMO.md - файл для демонстрации функционала:
-
-markdown
 # Демонстрация работы образовательной платформы
 
 ## Тестирование API
 
 ### 1. Тест кодировки UTF-8
-```bash
+
 GET http://localhost:8000/api/users/test-encoding/
+
 Ответ:
 
 json
@@ -21,13 +19,15 @@ json
   "status": "success",
   "test": "Привет мир! Санкт-Петербург, Казань, Екатеринбург"
 }
-2. JWT авторизация
-bash
+
+### 2. JWT авторизация
+
 POST http://localhost:8000/api/users/token/
 {
   "email": "test@example.com",
   "password": "testpass123"
 }
+
 Ответ:
 
 json
@@ -35,20 +35,24 @@ json
   "refresh": "eyJ0eXAiOiJKV1Qi...",
   "access": "eyJ0eXAiOiJKV1Qi..."
 }
-3. Профиль пользователя
-bash
+
+### 3. Профиль пользователя
+
 GET http://localhost:8000/api/users/users/me/
 Authorization: Bearer <ваш_token>
-4. Фильтрация платежей
-bash
+
+### 4. Фильтрация платежей
+
 GET http://localhost:8000/api/users/payments/?ordering=-payment_date
 GET http://localhost:8000/api/users/payments/?payment_method=cash
-5. API курсов
-bash
+
+### 5. API курсов
+
 GET http://localhost:8000/api/courses/courses/
 Authorization: Bearer <ваш_token>
-Структура проекта
-text
+
+#### Структура проекта
+
 config/           # Настройки Django
 ├── settings.py   # Основные настройки с UTF-8
 ├── urls.py       # Маршруты
@@ -65,5 +69,7 @@ courses/          # Приложение курсов
 ├── models.py     # Модели Course и Lesson
 ├── views.py      # ViewSets для курсов и уроков
 └── serializers.py # Сериализаторы курсов
-Проверка работоспособности
+
+### Проверка работоспособности
+
 Запустите: python test_final.py
