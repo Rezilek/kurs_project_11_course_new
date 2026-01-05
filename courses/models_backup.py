@@ -1,5 +1,7 @@
+from django.contrib.auth.models import User
 from django.db import models
 from django.conf import settings
+from .validators import validate_youtube_url
 
 
 class Course(models.Model):
@@ -23,11 +25,30 @@ class Course(models.Model):
 class Lesson(models.Model):
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(verbose_name='Описание')
-    preview = models.ImageField(upload_to='lessons/previews/', null=True, blank=True, verbose_name='Превью')
-    video_url = models.URLField(verbose_name='Ссылка на видео')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons', verbose_name='Курс')
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                              related_name='lessons', null=True, blank=True, verbose_name='Владелец')
+    preview = models.ImageField(
+        upload_to='lessons/previews/',
+        verbose_name='Превью',
+        blank=True,
+        null=True
+    )
+    video_url = models.URLField(
+        verbose_name='Ссылка на видео',
+        blank=True,
+        null=True,
+        validators=[validate_youtube_url]  # Добавляем валидатор
+    )
+    course = models.ForeignKey(
+        'Course',
+        on_delete=models.CASCADE,
+        related_name='lessons',
+        verbose_name='Курс'
+    )
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='lessons',
+        verbose_name='Владелец'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
@@ -38,6 +59,16 @@ class Lesson(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        """Валидация модели перед сохранением"""
+        from .validators import validate_no_external_links
+
+        # Проверяем описание на внешние ссылки
+        if self.description:
+            validate_no_external_links(self.description)
+
+        super().clean()
 
 
 class Subscription(models.Model):
