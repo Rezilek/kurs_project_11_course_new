@@ -12,6 +12,12 @@ class Course(models.Model):
                               related_name='courses', null=True, blank=True, verbose_name='Владелец')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name='Цена'
+    )
 
     class Meta:
         verbose_name = 'Курс'
@@ -93,3 +99,7 @@ class Subscription(models.Model):
     
     def __str__(self):
         return f"{self.user.email} - {self.course.title}"
+
+
+class Payment:
+    pass

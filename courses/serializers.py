@@ -2,10 +2,13 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-
-from users.models import Payment
+from .models import Payment
 from courses.models import Course, Lesson, Subscription
 from .validators import validate_youtube_url, validate_no_external_links
+from typing import Optional
+from rest_framework.request import Request
+from drf_spectacular.utils import extend_schema_field
+from drf_spectacular.types import OpenApiTypes
 
 User = get_user_model()
 
@@ -59,6 +62,7 @@ class CourseSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(e.message)
         return value
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_subscribed(self, obj):
         """Определяет, подписан ли текущий пользователь на курс"""
         request = self.context.get('request')
@@ -81,3 +85,30 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         """Автоматически устанавливаем текущего пользователя"""
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            'id', 'user', 'user_email', 'course', 'course_title',
+            'amount', 'payment_method', 'status', 'stripe_session_id',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['user', 'status', 'stripe_session_id', 'created_at', 'updated_at']
+
+class PaymentCreateSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField(write_only=True)
+    payment_method = serializers.ChoiceField(
+        choices=['cash', 'transfer', 'stripe'],
+        default='stripe'
+    )
+
+    def validate_course_id(self, value):
+        from .models import Course
+        if not Course.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Курс с указанным ID не существует.")
+        return value

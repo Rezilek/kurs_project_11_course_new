@@ -13,6 +13,7 @@ router.register(r'payments', PaymentViewSet, basename='payments')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('auth/', include('rest_framework.urls')),
     # JWT эндпоинты
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

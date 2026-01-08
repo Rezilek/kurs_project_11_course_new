@@ -10,5 +10,5 @@ router.register(r'subscriptions', SubscriptionViewSet, basename='subscription')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('courses/subscribe/', SubscriptionViewSet.as_view({'post': 'create'}), name='course-subscribe'),
+    #path('courses/subscribe/', SubscriptionViewSet.as_view({'post': 'create'}), name='course-subscribe'),
 ]

@@ -1,10 +1,12 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 from .models import Payment
 from .serializers import UserSerializer, UserRegisterSerializer, PaymentSerializer
@@ -75,6 +77,20 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
 
 
+# Создаем сериализатор для тестового эндпоинта
+class TestEncodingResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    data = serializers.DictField()
+    status = serializers.CharField()
+    test = serializers.CharField()
+
+
+@extend_schema(
+    summary="Тестовый эндпоинт для проверки кодировки",
+    description="Проверяет корректность работы UTF-8 кодировки в API",
+    responses=TestEncodingResponseSerializer,
+    tags=['Тестирование']
+)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def test_encoding(request):

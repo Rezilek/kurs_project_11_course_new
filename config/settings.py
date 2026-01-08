@@ -16,6 +16,7 @@ from datetime import timedelta
 from decouple import config, Csv
 import json
 from django.core.serializers.json import DjangoJSONEncoder
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     # Наши приложения
     'users',
     'courses',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -157,6 +159,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # REST Framework settings
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -284,3 +287,23 @@ import importlib
 from rest_framework.renderers import JSONRenderer
 
 JSONRenderer.encoder_class = UnicodeJSONEncoder
+
+# Настройки DRF-Spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Образовательной платформы',
+    'DESCRIPTION': 'Документация API для платформы курсов. Включает управление курсами, уроками, подписками и платежами.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # Другие полезные опции:
+    # 'SWAGGER_UI_SETTINGS': {
+    #     'deepLinking': True,
+    # },
+    # 'COMPONENT_SPLIT_REQUEST': True,
+}
+
+# Загружаем переменные из .env файла
+load_dotenv()
+
+# Stripe Configuration
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
