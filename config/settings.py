@@ -25,12 +25,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-94t%#p-^+&og5b^dc3$qj$**(*urq04aq**#uop4@ew9^#54&')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'testserver',  # для Django тестов
+]
 
 
 # Application definition
@@ -94,11 +98,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+        'NAME': os.getenv('DB_NAME', 'kurs_project_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '12345'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -137,7 +141,7 @@ LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
-
+USE_L10N = True
 USE_TZ = True
 
 # Для корректной работы с кириллицей в JSON
@@ -186,6 +190,7 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    'DEFAULT_CHARSET': 'utf-8',
 }
 
 # JWT Settings
@@ -272,9 +277,8 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
 
 # CSRF trusted origins
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS',
-                              default='http://localhost:3000,http://127.0.0.1:3000',
-                              cast=Csv())
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS',
+                                 'http://localhost:3000,http://127.0.0.1:3000').split(',')
 
 # Настройка JSON Encoder для корректной работы с кириллицей
 class UnicodeJSONEncoder(DjangoJSONEncoder):
@@ -291,14 +295,30 @@ JSONRenderer.encoder_class = UnicodeJSONEncoder
 # Настройки DRF-Spectacular
 SPECTACULAR_SETTINGS = {
     'TITLE': 'API Образовательной платформы',
-    'DESCRIPTION': 'Документация API для платформы курсов. Включает управление курсами, уроками, подписками и платежами.',
+    'DESCRIPTION': """
+    Документация API для платформы онлайн-курсов.
+
+    ## Основные возможности:
+    - Управление курсами и уроками
+    - Подписки на курсы
+    - Платежи через Stripe
+    - JWT аутентификация
+    """,
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    # Другие полезные опции:
-    # 'SWAGGER_UI_SETTINGS': {
-    #     'deepLinking': True,
-    # },
-    # 'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_SPLIT_REQUEST': True,
+
+    # Настройки для Swagger UI
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+
+    # Настройки для ReDoc
+    'REDOC_UI_SETTINGS': {
+        'hide-download-button': True,
+    },
 }
 
 # Загружаем переменные из .env файла

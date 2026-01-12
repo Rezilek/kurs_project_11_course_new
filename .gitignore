@@ -2,6 +2,7 @@
 
 # Django
 *.log
+local_settings.py
 *.pot
 *.pyc
 __pycache__/
@@ -15,6 +16,10 @@ env/
 .env
 .env.local
 *.env
+ENV/
+.venv
+env.bak/
+venv.bak/
 
 # IDE
 .vscode/
@@ -24,6 +29,11 @@ env/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Python
@@ -32,13 +42,10 @@ Thumbs.db
 
 staticfiles/
 
-local_settings.py
-
+# Database
+*.sqlite3
+*.db
 db.sqlite3-journal
-
-# Virtual environment
-ENV/
-.venv
 
 *.so
 .Python
@@ -59,9 +66,21 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 
 # Project specific
 *.env.local
 .env.production
 .env.development
+
+# Environment variables
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+"@ | Out-File -FilePath ".gitignore" -Encoding UTF8

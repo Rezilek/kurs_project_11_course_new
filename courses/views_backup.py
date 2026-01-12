@@ -1,4 +1,3 @@
-# courses/views.py
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, filters, status
 from django_filters.rest_framework import DjangoFilterBackend
@@ -23,7 +22,6 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from drf_spectacular.types import OpenApiTypes
 
 
-# УПРОЩЕННАЯ ВЕРСИЯ - убираем сложные декораторы для быстрого запуска
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
@@ -72,97 +70,69 @@ class CourseViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
 
-    @extend_schema(
-        summary="Подписаться или отписаться от курса",
-        description="""Позволяет текущему пользователю подписаться на курс или отписаться от него.
-        При первом вызове создается подписка. При повторном — отписывает пользователя (переключатель).""",
-        responses={
-            200: {'description': 'Статус подписки успешно изменен'},
-            404: {'description': 'Курс не найден'},
-        }
-    )
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def subscribe(self, request, pk=None):
-        """
-        Подписаться или отписаться от курса.
-        Если подписка существует - переключает её активность.
-        Если не существует - создает активную подписку.
-        """
-        course = self.get_object()
-        user = request.user
-
-        subscription, created = Subscription.objects.get_or_create(
-            user=user,
-            course=course
-        )
-
-        if created:
-            subscription.is_active = True
-            message = "Вы успешно подписались на курс"
-        else:
-            subscription.is_active = not subscription.is_active
-            message = "Вы отписались от курса" if not subscription.is_active else "Вы снова подписались на курс"
-
-        subscription.save()
-
-        return Response({
-            'status': 'success',
-            'message': message,
-            'is_subscribed': subscription.is_active,
-            'course_id': course.id,
-            'course_title': course.title
-        })
+        # ... ваш код ...
+        return Response({...})
 
     @extend_schema(
-        summary="Начать покупку курса",
-        description="Создает платежную сессию для покупки курса через Stripe",
+        summary="Купить курс",
+        description="Начинает процесс покупки курса через Stripe",
+        request=None,
         responses={
-            201: {'description': 'Перенаправление на страницу оплаты'},
-            400: {'description': 'Ошибка валидации'},
-            409: {'description': 'Курс уже куплен'}
+            200: {
+                'description': 'Ссылка для оплаты',
+                'example': {
+                    'url': 'https://checkout.stripe.com/pay/...',
+                    'payment_id': 1,
+                    'session_id': 'cs_test_...'
+                }
+            }
         }
     )
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def buy(self, request, pk=None):
         """
-        Упрощенный метод покупки курса.
-        Перенаправляет на создание платежа через PaymentViewSet.
+        Покупка курса - простой вызов StripePaymentViewSet
         """
-        from django.urls import reverse
+        # ... ваш код ...
+        return Response({...})
 
-        course = self.get_object()
-
-        # Проверяем, не куплен ли уже курс
-        from users.models import Payment
-        existing_payment = Payment.objects.filter(
-            user=request.user,
-            paid_course=course,
-            status='paid'
-        ).exists()
-
-        if existing_payment:
-            return Response(
-                {'error': 'Вы уже приобрели этот курс'},
-                status=status.HTTP_409_CONFLICT
-            )
-
-        # Создаем данные для платежа
-        payment_data = {
-            'item_type': 'course',
-            'item_id': course.id
-        }
-
-        # Перенаправляем на создание платежа
-        return Response({
-            'message': 'Для оплаты перейдите по ссылке',
-            'payment_url': request.build_absolute_uri(
-                reverse('users:payment-buy')  # или другой маршрут
-            ),
-            'payment_data': payment_data,
-            'course_id': course.id,
-            'course_title': course.title,
-            'course_price': float(course.price) if hasattr(course, 'price') else 0.0
-        }, status=status.HTTP_200_OK)
+    # ДЕКОРАТОР @extend_schema_view ДОЛЖЕН БЫТЬ ПОСЛЕ ВСЕХ МЕТОДОВ, НО ВНУТРИ КЛАССА
+    @extend_schema_view(
+        list=extend_schema(
+            summary="Получить список курсов",
+            description="Возвращает список всех курсов с пагинацией (5 на страницу).",
+            parameters=[
+                OpenApiParameter(
+                    name='page',
+                    type=OpenApiTypes.INT,
+                    location=OpenApiParameter.QUERY,
+                    description='Номер страницы'
+                ),
+            ]
+        ),
+        retrieve=extend_schema(
+            summary="Получить детали курса",
+            description="Возвращает детальную информацию о курсе, включая поле is_subscribed."
+        ),
+        create=extend_schema(
+            summary="Создать новый курс",
+            description="Создает новый курс. Требуется авторизация."
+        ),
+        update=extend_schema(
+            summary="Обновить курс",
+            description="Полностью обновляет курс. Доступно владельцу или модератору."
+        ),
+        partial_update=extend_schema(
+            summary="Частично обновить курс",
+            description="Частично обновляет курс. Доступно владельцу или модератору."
+        ),
+        destroy=extend_schema(
+            summary="Удалить курс",
+            description="Удаляет курс. Доступно только владельцу."
+        ),
+    )
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -200,7 +170,6 @@ class LessonViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
 
-# УПРОЩЕННАЯ ВЕРСИЯ SubscriptionViewSet
 class SubscriptionViewSet(viewsets.ModelViewSet):
     """ViewSet для управления подписками пользователя"""
     queryset = Subscription.objects.all()
@@ -220,3 +189,4 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
         course = get_object_or_404(Course, id=course_id)
         serializer.save(user=self.request.user, course=course, is_active=True)
+

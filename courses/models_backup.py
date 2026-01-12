@@ -1,25 +1,39 @@
-from django.contrib.auth.models import User
+﻿# -*- coding: utf-8 -*-
 from django.db import models
 from django.conf import settings
-from .validators import validate_youtube_url
+from .validators import validate_youtube_url, validate_no_external_links
 
 
 class Course(models.Model):
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(verbose_name='Описание')
     preview = models.ImageField(upload_to='courses/previews/', null=True, blank=True, verbose_name='Превью')
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,   
                               related_name='courses', null=True, blank=True, verbose_name='Владелец')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.00,
+        verbose_name='Цена'
+    )
 
     class Meta:
         verbose_name = 'Курс'
         verbose_name_plural = 'Курсы'
-        ordering = ['-created_at']
+        ordering = ['-created_at']  # Сортировка по дате создания (новые первыми)
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        """Валидация модели перед сохранением"""
+        # Проверяем описание на внешние ссылки
+        if self.description:
+            validate_no_external_links(self.description)
+
+        super().clean()
 
 
 class Lesson(models.Model):
@@ -35,20 +49,11 @@ class Lesson(models.Model):
         verbose_name='Ссылка на видео',
         blank=True,
         null=True,
-        validators=[validate_youtube_url]  # Добавляем валидатор
+        validators=[validate_youtube_url]  # Вот здесь должен быть ваш валидатор!
     )
-    course = models.ForeignKey(
-        'Course',
-        on_delete=models.CASCADE,
-        related_name='lessons',
-        verbose_name='Курс'
-    )
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='lessons',
-        verbose_name='Владелец'
-    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons', verbose_name='Курс')
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,   
+                              related_name='lessons', null=True, blank=True, verbose_name='Владелец')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
@@ -62,8 +67,6 @@ class Lesson(models.Model):
 
     def clean(self):
         """Валидация модели перед сохранением"""
-        from .validators import validate_no_external_links
-
         # Проверяем описание на внешние ссылки
         if self.description:
             validate_no_external_links(self.description)
@@ -87,12 +90,16 @@ class Subscription(models.Model):
     )
     is_active = models.BooleanField(default=True, verbose_name='активна')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-
+    
     class Meta:
         verbose_name = 'подписка'
         verbose_name_plural = 'подписки'
         unique_together = ['user', 'course']
-
+        ordering = ['-created_at']
+    
     def __str__(self):
         return f"{self.user.email} - {self.course.title}"
-    
+
+
+class Payment:
+    pass

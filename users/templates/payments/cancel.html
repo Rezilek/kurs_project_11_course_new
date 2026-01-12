@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title|default:"Оплата отменена" }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .cancel { color: orange; font-size: 24px; }
+        .info { background: #fff3cd; padding: 20px; border-radius: 10px; margin: 20px auto; max-width: 600px; }
+    </style>
+</head>
+<body>
+    <h1 class="cancel">⏹️ {{ title|default:"Оплата отменена" }}</h1>
+
+    <div class="info">
+        <p>{{ message|default:"Вы отменили процесс оплаты." }}</p>
+
+        {% if has_payment %}
+            <p>Вы отменили оплату <strong>{{ item_name }}</strong> на сумму {{ amount }} руб.</p>
+            <p>ID платежа: {{ payment_id }}</p>
+            <p>Вы можете вернуться и оплатить позже.</p>
+        {% else %}
+            <p>Сессия оплаты была завершена.</p>
+        {% endif %}
+    </div>
+
+    <p><a href="/">Вернуться на главную</a> | <a href="/api/docs/">Документация API</a></p>
+</body>
+</html>

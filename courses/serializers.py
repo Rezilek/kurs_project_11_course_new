@@ -1,12 +1,9 @@
-﻿# -*- coding: utf-8 -*-
+﻿# courses/serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from .models import Payment
-from courses.models import Course, Lesson, Subscription
+from .models import Course, Lesson, Subscription
 from .validators import validate_youtube_url, validate_no_external_links
-from typing import Optional
-from rest_framework.request import Request
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
 
@@ -39,7 +36,6 @@ class LessonSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Общая валидация данных урока"""
-        # Дополнительные проверки, если нужно
         return data
 
 
@@ -88,27 +84,71 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    course_title = serializers.CharField(source='course.title', read_only=True)
-    user_email = serializers.CharField(source='user.email', read_only=True)
+    """Сериализатор для модели Payment из users.models"""
+
+    # Импортируем Payment ТОЛЬКО внутри класса
+    def __init__(self, *args, **kwargs):
+        from users.models import Payment
+        self.Meta.model = Payment
+        super().__init__(*args, **kwargs)
+
+    course_title = serializers.SerializerMethodField()
+    lesson_title = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
 
     class Meta:
-        model = Payment
+        # Model будет установлен в __init__
         fields = [
-            'id', 'user', 'user_email', 'course', 'course_title',
-            'amount', 'payment_method', 'status', 'stripe_session_id',
-            'created_at', 'updated_at'
+            'id', 'user', 'user_email',
+            'paid_course', 'course_title',
+            'paid_lesson', 'lesson_title',
+            'amount', 'currency', 'payment_method', 'status',
+            'stripe_session_id', 'stripe_payment_intent_id', 'stripe_customer_id',
+            'stripe_metadata', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['user', 'status', 'stripe_session_id', 'created_at', 'updated_at']
+
+    def get_course_title(self, obj):
+        return obj.paid_course.title if obj.paid_course else None
+
+    def get_lesson_title(self, obj):
+        return obj.paid_lesson.title if obj.paid_lesson else None
+
+    def get_user_email(self, obj):
+        return obj.user.email if obj.user else None
+
 
 class PaymentCreateSerializer(serializers.Serializer):
-    course_id = serializers.IntegerField(write_only=True)
+    """
+    Сериализатор для создания платежа
+    """
+    course_id = serializers.IntegerField(required=False)
+    lesson_id = serializers.IntegerField(required=False)
     payment_method = serializers.ChoiceField(
         choices=['cash', 'transfer', 'stripe'],
         default='stripe'
     )
 
+    def validate(self, data):
+        """
+        Проверяет, что указан либо курс, либо урок
+        """
+        course_id = data.get('course_id')
+        lesson_id = data.get('lesson_id')
+
+        if not course_id and not lesson_id:
+            raise serializers.ValidationError("Укажите course_id или lesson_id")
+
+        if course_id and lesson_id:
+            raise serializers.ValidationError("Укажите только course_id ИЛИ lesson_id")
+
+        return data
+
     def validate_course_id(self, value):
-        from .models import Course
         if not Course.objects.filter(id=value).exists():
-            raise serializers.ValidationError("Курс с указанным ID не существует.")
+            raise serializers.ValidationError("Курс с указанным ID не существует")
+        return value
+
+    def validate_lesson_id(self, value):
+        if not Lesson.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Урок с указанным ID не существует")
         return value

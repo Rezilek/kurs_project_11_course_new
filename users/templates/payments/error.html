@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ error_title|default:"Ошибка" }} | Образовательная платформа</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fdf6f6 0%, #f8d7da 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        .error-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(50, 50, 93, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+            width: 100%;
+            max-width: 600px;
+            overflow: hidden;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .error-header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .error-header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .error-content {
+            padding: 30px;
+        }
+
+        .error-details {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 5px solid #dc3545;
+        }
+
+        .error-code {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            color: #495057;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            text-align: center;
+            flex: 1;
+            min-width: 180px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(220, 53, 69, 0.2);
+        }
+
+        .btn-secondary {
+            background: #f1f3f4;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #e8eaed;
+            transform: translateY(-2px);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .error-container {
+                margin: 10px;
+            }
+
+            .error-header {
+                padding: 25px 20px;
+            }
+
+            .error-content {
+                padding: 25px 20px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-header">
+            <div class="error-icon">⚠️</div>
+            <h1>{{ error_title|default:"Произошла ошибка" }}</h1>
+        </div>
+
+        <div class="error-content">
+            <div class="error-details">
+                <p>{{ error_message|default:"При обработке вашего запроса произошла ошибка." }}</p>
+
+                {% if session_id %}
+                <p class="error-code">Session ID: {{ session_id }}</p>
+                {% endif %}
+
+                {% if status_code %}
+                <p class="error-code">Код ошибки: {{ status_code }}</p>
+                {% endif %}
+            </div>
+
+            <div class="action-buttons">
+                <a href="/api/courses/" class="btn btn-primary">
+                    <span>🏠</span>
+                    На главную
+                </a>
+                <a href="/api/docs/" class="btn btn-secondary">
+                    <span>📖</span>
+                    Документация API
+                </a>
+                <a href="mailto:support@example.com" class="btn btn-secondary">
+                    <span>✉️</span>
+                    Служба поддержки
+                </a>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px; color: #6c757d; font-size: 0.85rem;">
+                <p>Если ошибка повторяется, обратитесь в службу поддержки по адресу support@example.com</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

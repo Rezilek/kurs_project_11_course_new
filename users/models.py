@@ -54,6 +54,7 @@ class User(AbstractUser):
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
+        ordering = ['email']
 
     def __str__(self):
         return self.email
@@ -101,6 +102,9 @@ class Payment(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+    stripe_product_id = models.CharField(max_length=255, blank=True, verbose_name='ID продукта Stripe')
+    stripe_price_id = models.CharField(max_length=255, blank=True, verbose_name='ID цены Stripe')
+    payment_url = models.URLField(max_length=500, blank=True, verbose_name='Ссылка на оплату')
 
     def clean(self):
         """Валидация: платеж должен быть либо за курс, либо за урок"""
@@ -112,6 +116,12 @@ class Payment(models.Model):
             raise ValidationError('Платеж может быть связан только с курсом ИЛИ уроком, не с обоими')
 
         super().clean()
+
+    class Meta:
+        verbose_name = 'Платеж'
+        verbose_name_plural = 'Платежи'
+        ordering = ['-created_at']
+
 
     def __str__(self):
         item = self.paid_course.title if self.paid_course else self.paid_lesson.title

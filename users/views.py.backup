@@ -1,13 +1,13 @@
-﻿import stripe
-from django.shortcuts import get_object_or_404, render
+import stripe
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
+from django_filters.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema
 
 from config import settings
 from courses.services.stripe_service import StripeService
@@ -97,7 +97,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         request=PaymentCreateSerializer,
         responses={
             201: {
-                'description': 'Платёжная сессия создана',
+                'description': 'Платежная сессия создана',
                 'examples': {
                     'application/json': {
                         'message': 'Платеж создан',
@@ -166,7 +166,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
                 price = StripeService.create_price(
                     product_id=product.id,
-                    amount=float(amount),
+                    amount=float(amount),  # Убедитесь, что это float
                     currency='rub'
                 )
 
@@ -181,21 +181,14 @@ class PaymentViewSet(viewsets.ModelViewSet):
             else:
                 logger.info(f"Используем существующие Stripe ID для {item_type} {item_id}")
 
-            # Используем прямые URL
-            success_url = 'http://localhost:8000/api/users/payments/success/?session_id={CHECKOUT_SESSION_ID}'
-            cancel_url = 'http://localhost:8000/api/users/payments/cancel/'
-
-            print(f"DEBUG: Success URL: {success_url}")
-            print(f"DEBUG: Cancel URL: {cancel_url}")
-
             # Создаем сессию оплаты
             session = StripeService.create_checkout_session(
                 price_id=stripe_price_id,
                 user_id=user.id,
                 item_id=item.id,
                 item_type=item_type,
-                success_url=success_url,
-                cancel_url=cancel_url
+                success_url=serializer.validated_data.get('success_url'),
+                cancel_url=serializer.validated_data.get('cancel_url')
             )
 
             # Сохраняем платеж в БД
@@ -231,7 +224,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             logger.error(f"Ошибка создания платежа: {e}")
-            logger.exception("Полная трассировка ошибки:")
+            logger.exception("Полная трассировка ошибки:")  # Добавьте для деталей
             return Response(
                 {'detail': f'Ошибка при создании платежа: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -285,9 +278,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 @extend_schema(
     summary="Успешная оплата",
-    description="HTML-страница успешного завершения оплаты",
+    description="Обработка успешного редиректа от Stripe после оплаты",
     tags=['Платежи'],
-    methods=['GET']
+    methods=['GET'],
+    exclude=True
 )
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -295,82 +289,262 @@ def payment_success(request):
     """Обработка редиректа после успешной оплаты в Stripe"""
     session_id = request.GET.get('session_id')
 
-    # Если session_id не передан (тестовый запрос или ошибка)
     if not session_id:
-        return render(request, 'payments/success.html', {
-            'title': 'Тестовая страница оплаты',
-            'message': 'Страница успешной оплаты готова к работе.',
-            'test_mode': True,
-            'instruction': 'При реальной оплате Stripe передаст session_id автоматически.'
-        })
+        return Response(
+            {'error': 'Отсутствует session_id'},
+            status=400
+        )
 
     try:
-        # 1. Получаем платеж из БД
+        # Получаем платеж по session_id Stripe
         payment = Payment.objects.get(stripe_session_id=session_id)
 
-        # 2. Проверяем статус в Stripe
+        # Проверяем статус в Stripe
         stripe_session = StripeService.retrieve_session(session_id)
 
-        # 3. Получаем название товара
-        if payment.paid_course:
-            item_name = payment.paid_course.title
-            item_type = 'курс'
-        elif payment.paid_lesson:
-            item_name = payment.paid_lesson.title
-            item_type = 'урок'
-        else:
-            item_name = "Обучение"
-            item_type = "материал"
-
-        # 4. Обновляем статус, если оплачено
         if stripe_session.payment_status == 'paid' and payment.status != 'paid':
+            # Обновляем статус платежа
             payment.status = 'paid'
             payment.stripe_payment_intent_id = stripe_session.payment_intent
             payment.save()
 
-            logger.info(f"Платеж {payment.id} отмечен как оплаченный через редирект")
+            logger.info(f"Платеж {payment.id} успешно завершен")
 
-        # 5. Отображаем страницу успеха
-        context = {
-            'title': 'Оплата успешно завершена!',
-            'message': f'Вы успешно оплатили {item_type}:',
-            'item_name': item_name,
-            'item_type': item_type,
-            'amount': payment.amount,
-            'currency': payment.currency,
-            'payment_id': payment.id,
-            'payment_status': payment.status,
-            'stripe_status': stripe_session.payment_status,
-            'customer_email': stripe_session.customer_details.email if hasattr(stripe_session.customer_details,
-                                                                               'email') else None,
-            'real_payment': True
-        }
+            # HTML ответ для браузера
+            item_name = payment.paid_course.title if payment.paid_course else payment.paid_lesson.title
 
-        return render(request, 'payments/success.html', context)
+            html_content = f"""
+            <html>
+            <head>
+                <title>Оплата успешна</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        text-align: center;
+                        padding: 50px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        background-color: white;
+                        padding: 30px;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        max-width: 600px;
+                        margin: 0 auto;
+                    }}
+                    .success-icon {{
+                        color: #4CAF50;
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                    }}
+                    a {{
+                        display: inline-block;
+                        margin-top: 20px;
+                        padding: 10px 20px;
+                        background-color: #4CAF50;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 5px;
+                    }}
+                    a:hover {{
+                        background-color: #45a049;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="success-icon">✅</div>
+                    <h1>Оплата успешно завершена!</h1>
+                    <p><strong>ID платежа:</strong> {payment.id}</p>
+                    <p><strong>Товар:</strong> {item_name}</p>
+                    <p><strong>Сумма:</strong> {payment.amount} {payment.currency}</p>
+                    <p><strong>Дата:</strong> {payment.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+                    <p>Спасибо за покупку!</p>
+                    <a href="/api/docs/">Вернуться к документации API</a>
+                </div>
+            </body>
+            </html>
+            """
+
+            return Response(html_content, content_type='text/html')
+
+        elif payment.status == 'paid':
+            # Платеж уже был оплачен
+            html_content = f"""
+            <html>
+            <head>
+                <title>Оплата уже обработана</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        text-align: center;
+                        padding: 50px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        background-color: white;
+                        padding: 30px;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        max-width: 600px;
+                        margin: 0 auto;
+                    }}
+                    a {{
+                        display: inline-block;
+                        margin-top: 20px;
+                        padding: 10px 20px;
+                        background-color: #007BFF;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 5px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>ℹ️ Платеж уже был обработан</h1>
+                    <p>Этот платеж уже был успешно обработан ранее.</p>
+                    <p><strong>ID платежа:</strong> {payment.id}</p>
+                    <a href="/api/docs/">Вернуться к документации API</a>
+                </div>
+            </body>
+            </html>
+            """
+
+            return Response(html_content, content_type='text/html')
+        else:
+            # Платеж еще не оплачен
+            html_content = f"""
+            <html>
+            <head>
+                <title>Оплата ожидает</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        text-align: center;
+                        padding: 50px;
+                        background-color: #f5f5f5;
+                    }}
+                    .container {{
+                        background-color: white;
+                        padding: 30px;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        max-width: 600px;
+                        margin: 0 auto;
+                    }}
+                    .waiting-icon {{
+                        color: #FFA500;
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="waiting-icon">⏳</div>
+                    <h1>Оплата ожидает обработки</h1>
+                    <p>Статус платежа: <strong>{payment.status}</strong></p>
+                    <p>Пожалуйста, подождите или обновите страницу через несколько минут.</p>
+                    <p><a href="/api/docs/">Вернуться к документации API</a></p>
+                </div>
+            </body>
+            </html>
+            """
+
+            return Response(html_content, content_type='text/html', status=402)
 
     except Payment.DoesNotExist:
-        logger.warning(f"Платеж с session_id {session_id} не найден в БД")
-        return render(request, 'payments/success.html', {
-            'title': 'Информация о платеже',
-            'message': 'Данные о платеже обрабатываются.',
-            'session_id': session_id,
-            'note': 'Платеж может появиться в системе через несколько секунд.'
-        })
+        logger.error(f"Платеж с session_id {session_id} не найден")
+
+        html_content = """
+        <html>
+        <head>
+            <title>Платеж не найден</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    padding: 50px;
+                    background-color: #f5f5f5;
+                }
+                .container {
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    max-width: 600px;
+                    margin: 0 auto;
+                }
+                .error-icon {
+                    color: #dc3545;
+                    font-size: 48px;
+                    margin-bottom: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error-icon">❌</div>
+                <h1>Платеж не найден</h1>
+                <p>Платеж с указанным session_id не найден в системе.</p>
+                <p>Пожалуйста, проверьте правильность ссылки или обратитесь в поддержку.</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        return Response(html_content, content_type='text/html', status=404)
 
     except Exception as e:
         logger.error(f"Ошибка обработки успешной оплаты: {e}")
-        return render(request, 'payments/error.html', {
-            'title': 'Ошибка обработки',
-            'message': 'Произошла ошибка при обработке платежа.',
-            'error_details': str(e)
-        })
+
+        html_content = f"""
+        <html>
+        <head>
+            <title>Ошибка обработки</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    padding: 50px;
+                    background-color: #f5f5f5;
+                }}
+                .container {{
+                    background-color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    max-width: 600px;
+                    margin: 0 auto;
+                }}
+                .error-icon {{
+                    color: #dc3545;
+                    font-size: 48px;
+                    margin-bottom: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error-icon">⚠️</div>
+                <h1>Ошибка обработки оплаты</h1>
+                <p>Произошла внутренняя ошибка сервера при обработке платежа.</p>
+                <p>Пожалуйста, попробуйте позже или обратитесь в поддержку.</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        return Response(html_content, content_type='text/html', status=500)
 
 
 @extend_schema(
     summary="Отмена оплаты",
-    description="HTML-страница отмены оплаты",
+    description="Обработка редиректа при отмене оплаты в Stripe",
     tags=['Платежи'],
-    methods=['GET']
+    methods=['GET'],
+    exclude=True
 )
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -378,87 +552,75 @@ def payment_cancel(request):
     """Обработка редиректа при отмене оплаты в Stripe"""
     session_id = request.GET.get('session_id')
 
-    context = {
-        'title': 'Оплата отменена',
-        'message': 'Вы отменили процесс оплаты.',
-        'has_payment': False
-    }
-
     if session_id:
         try:
             payment = Payment.objects.get(stripe_session_id=session_id)
             payment.status = 'cancelled'
             payment.save()
             logger.info(f"Платеж {payment.id} отменен пользователем")
-
-            if payment.paid_course:
-                item_name = payment.paid_course.title
-            elif payment.paid_lesson:
-                item_name = payment.paid_lesson.title
-            else:
-                item_name = "товар"
-
-            context.update({
-                'has_payment': True,
-                'item_name': item_name,
-                'amount': payment.amount,
-                'payment_id': payment.id
-            })
         except Payment.DoesNotExist:
             pass
 
-    return render(request, 'payments/cancel.html', context)
+    # HTML ответ для браузера
+    html_content = """
+    <html>
+    <head>
+        <title>Оплата отменена</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                padding: 50px;
+                background-color: #f5f5f5;
+            }
+            .container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                max-width: 600px;
+                margin: 0 auto;
+            }
+            .cancel-icon {
+                color: #dc3545;
+                font-size: 48px;
+                margin-bottom: 20px;
+            }
+            a {
+                display: inline-block;
+                margin-top: 20px;
+                padding: 10px 20px;
+                background-color: #007BFF;
+                color: white;
+                text-decoration: none;
+                border-radius: 5px;
+            }
+            a:hover {
+                background-color: #0056b3;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="cancel-icon">❌</div>
+            <h1>Оплата отменена</h1>
+            <p>Вы отменили процесс оплаты.</p>
+            <p>Вы можете вернуться на страницу курса/урока и повторить попытку оплаты.</p>
+            <a href="/api/docs/">Вернуться к документации API</a>
+        </div>
+    </body>
+    </html>
+    """
+
+    return Response(html_content, content_type='text/html')
 
 
 @extend_schema(
     summary="Вебхук Stripe",
-    description="""Эндпоинт для получения событий от Stripe.
-
-    Настройте в Stripe Dashboard вебхук на этот URL.
-    Поддерживаемые события:
-    - checkout.session.completed
-    - checkout.session.expired  
-    - payment_intent.succeeded
-    - payment_intent.payment_failed
-
-    Требуемые заголовки:
-    - Stripe-Signature: подпись вебхука
-    """,
+    description="Получение событий от Stripe (рекомендуется для продакшена)",
     tags=['Платежи'],
     methods=['POST'],
-    request={
-        'application/json': {
-            'example': {
-                'id': 'evt_1O7I2nFz6Z6q4r6Xw4pQ4pQ4',
-                'type': 'checkout.session.completed',
-                'data': {
-                    'object': {
-                        'id': 'cs_test_...',
-                        'payment_status': 'paid'
-                    }
-                }
-            }
-        }
-    },
-    responses={
-        200: {
-            'description': 'Вебхук обработан успешно',
-            'examples': {
-                'application/json': {
-                    'status': 'success',
-                    'event': 'checkout.session.completed'
-                }
-            }
-        },
-        400: {
-            'description': 'Ошибка валидации',
-            'examples': {
-                'application/json': {
-                    'error': 'Неверная подпись вебхука'
-                }
-            }
-        }
-    }
+    exclude=True
 )
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -536,10 +698,9 @@ def stripe_webhook(request):
 
     return Response({'status': 'success', 'event': event_type})
 
-
 @extend_schema(
     summary="Тестовый эндпоинт для проверки кодировки",
-    description="Проверяет корректность работы UTF-8 кодировки в Django DRF",
+    description="Проверяет корректность работы UTF-8 кодировки в API",
     tags=['Тестирование']
 )
 @api_view(['GET'])
@@ -556,7 +717,3 @@ def test_encoding(request):
         "status": "success",
         "test": "Привет мир! Санкт-Петербург, Казань, Екатеринбург"
     })
-
-"""
-СТАРЫЕ ФУНКЦИИ ЗАКОММЕНТИРОВАНЫ - ИСПОЛЬЗУЙТЕ final_fix.py
-"""

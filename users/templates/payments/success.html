@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title|default:"Оплата успешна" }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .success { color: green; font-size: 24px; }
+        .info { background: #f0f8ff; padding: 20px; border-radius: 10px; margin: 20px auto; max-width: 600px; }
+        .test-mode { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1 class="success">✅ {{ title|default:"Оплата успешно завершена!" }}</h1>
+
+    <div class="info">
+        <p>{{ message|default:"Спасибо за оплату!" }}</p>
+
+        {% if real_payment %}
+            <h2>{{ item_name }}</h2>
+            <p><strong>Тип:</strong> {{ item_type|default:"курс" }}</p>
+            <p><strong>Сумма:</strong> {{ amount }} {{ currency|default:"руб." }}</p>
+            <p><strong>ID платежа:</strong> {{ payment_id }}</p>
+            <p><strong>Статус:</strong> {{ payment_status|default:"paid" }}</p>
+
+            {% if customer_email %}
+                <p><strong>Email:</strong> {{ customer_email }}</p>
+            {% endif %}
+        {% endif %}
+
+        {% if test_mode %}
+            <div class="test-mode">
+                <h3>📋 Тестовый режим</h3>
+                <p>{{ instruction|default:"Эта страница показывает, как будет выглядеть успешная оплата." }}</p>
+                <p>При реальной оплате здесь будет информация о вашем платеже.</p>
+            </div>
+        {% endif %}
+
+        {% if note %}
+            <p><em>{{ note }}</em></p>
+        {% endif %}
+    </div>
+
+    <p><a href="/">Вернуться на главную</a> | <a href="/api/docs/">Документация API</a></p>
+</body>
+</html>

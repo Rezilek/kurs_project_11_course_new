@@ -8,6 +8,7 @@ router.register(r'courses', CourseViewSet, basename='courses')  # будет /ap
 router.register(r'lessons', LessonViewSet, basename='lessons')  # будет /api/courses/lessons/
 router.register(r'subscriptions', SubscriptionViewSet, basename='subscription')
 
+
 urlpatterns = [
     path('', include(router.urls)),
     #path('courses/subscribe/', SubscriptionViewSet.as_view({'post': 'create'}), name='course-subscribe'),
