@@ -19,7 +19,8 @@ dependencies = [
     "drf-spectacular (>=0.29.0,<0.30.0)",
     "stripe (>=14.1.0,<15.0.0)",
     "dotenv (>=0.9.9,<0.10.0)",
-    "decouple (>=0.0.7,<0.0.8)"
+    "decouple (>=0.0.7,<0.0.8)",
+    "celery (>=5.6.2,<6.0.0)"
 ]
 
 

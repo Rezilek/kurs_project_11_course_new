@@ -1,6 +1,7 @@
 ﻿# courses/models.py - ОБНОВЛЕННЫЕ модели
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class Course(models.Model):
@@ -51,6 +52,11 @@ class Course(models.Model):
         verbose_name = "Курс"
         verbose_name_plural = "Курсы"
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            self.updated_at = timezone.now()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

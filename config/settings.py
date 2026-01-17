@@ -18,6 +18,23 @@ import json
 from django.core.serializers.json import DjangoJSONEncoder
 from dotenv import load_dotenv
 
+# Загружаем переменные из .env файла
+load_dotenv()
+
+# Получаем значение пароля из переменной окружения
+# Email settings
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')  # добавить fallback
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')  # добавить fallback
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # добавить fallback
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Настройка DEFAULT_FROM_EMAIL с правильными приоритетами
+from_email = os.getenv('DEFAULT_FROM_EMAIL') or os.getenv('EMAIL_HOST_USER', '')
+DEFAULT_FROM_EMAIL = from_email if from_email else 'noreply@example.com'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -58,6 +75,7 @@ INSTALLED_APPS = [
     'users',
     'courses',
     'drf_spectacular',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -260,11 +278,6 @@ CORS_ALLOW_HEADERS = [
 # Дополнительные настройки
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Email settings (если понадобится в будущем)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_HOST = 'localhost'
-EMAIL_PORT = 25
-
 # Security settings для production
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
@@ -321,9 +334,14 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-# Загружаем переменные из .env файла
-load_dotenv()
 
 # Stripe Configuration
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
+
+# Настройки Redis из переменных окружения
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = os.getenv('REDIS_PORT', 6379)
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
