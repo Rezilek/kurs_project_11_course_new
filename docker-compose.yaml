@@ -1,19 +1,31 @@
-﻿services:
+﻿version: '3.8'
+
+services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: kurs_project_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Uh6gkaio1
+      POSTGRES_DB: ${DB_NAME}           # ИЗМЕНИТЕ: используйте DB_NAME
+      POSTGRES_USER: ${DB_USER}         # ИЗМЕНИТЕ: используйте DB_USER
+      POSTGRES_PASSWORD: ${DB_PASSWORD} # ИЗМЕНИТЕ: используйте DB_PASSWORD
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]  # ИЗМЕНИТЕ: используйте DB_USER
       interval: 5s
       timeout: 5s
       retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: .
@@ -22,14 +34,40 @@
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     volumes:
       - .:/app
     command: >
-      sh -c "sleep 5 &&
-             python manage.py migrate &&
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
              python manage.py runserver 0.0.0.0:8000"
+
+  celery_worker:
+    build: .
+    depends_on:
+      - db
+      - redis
+      - backend
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: celery -A config worker --loglevel=info
+
+  celery_beat:
+    build: .
+    depends_on:
+      - db
+      - redis
+      - backend
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: celery -A config beat --loglevel=info
 
 volumes:
   postgres_data:

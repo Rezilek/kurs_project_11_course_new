@@ -88,3 +88,8 @@ MANIFEST
 htmlcov/
 .pytest_cache/
 "@ | Out-File -FilePath ".gitignore" -Encoding UTF8
+
+*_test.py
+*_test.ps1
+*_fixed.py
+*.html
