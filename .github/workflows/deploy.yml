@@ -31,7 +31,6 @@ jobs:
         env:
           SECRET_KEY: "test-key"
           DEBUG: "1"
-          POSTGRES_HOST: "localhost"
         run: |
           python manage.py test || echo "Tests passed or skipped"
 
@@ -41,44 +40,45 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
       
-      - name: Create .env file
-        run: |
-          cp .env.example .env
-          echo "✅ Created .env file from template"
-      
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v0.1.5
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            echo "🚀 Starting deployment..."
-            
-            # Создаем папку для приложения
-            mkdir -p /home/${{ secrets.SSH_USER }}/app
+          known_hosts: ${{ secrets.SSH_HOST }}
+          
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      
+      - name: Copy files via rsync
+        run: |
+          rsync -avz --delete --exclude '.git' --exclude '.env' --exclude '__pycache__' --exclude '*.pyc' ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/${{ secrets.SSH_USER }}/app/
+      
+      - name: Execute deployment commands
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             cd /home/${{ secrets.SSH_USER }}/app
+            echo "📦 Current directory: $(pwd)"
             
-            # Клонируем или обновляем код
-            if [ -d .git ]; then
-              git pull
-            else
-              git clone https://github.com/${{ github.repository }}.git .
-            fi
-            
-            # Создаем .env если нет
+            # Check if .env exists, if not create from example
             if [ ! -f .env ]; then
               cp .env.example .env
               echo "⚠️  Please update .env with real values!"
             fi
             
-            # Запускаем контейнеры
-            docker compose down
+            # Stop and remove old containers
+            docker compose down || true
+            
+            # Build and start new containers
             docker compose up -d --build
             
-            # Проверяем статус
+            # Show status
             docker compose ps
-            echo "✅ Deployment completed!"
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
