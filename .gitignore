@@ -94,4 +94,4 @@ htmlcov/
 *_fixed.py
 *.html
 *.zip
-backup_*
+backup_*static/

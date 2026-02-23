@@ -1,24 +1,18 @@
-﻿FROM python:3.11-slim
+﻿# Dockerfile
+# Базовый образ с Python
+FROM python:3.11-slim
 
-# Устанавливаем системные зависимости для PostgreSQL и Pillow
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    postgresql-client \
-    libjpeg-dev \
-    libpng-dev \
-    libwebp-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Защита от записи .pyc файлов и буферизации вывода в консоль
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
+# Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-COPY requirements.txt .
+# Обновляем pip и устанавливаем зависимости
+# Сначала копируем только файл с зависимостями, чтобы использовать кэширование слоев Docker
+COPY requirements.txt /app/
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Копируем весь проект в рабочую директорию
+COPY . /app/

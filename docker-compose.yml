@@ -1,0 +1,114 @@
+services:
+  # 1. База данных PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: kurs_project_db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env
+    networks:
+      - main_network
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis
+  redis:
+    image: redis:7-alpine
+    container_name: kurs_project_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - main_network
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 3. Django-приложение
+  web:
+    build: .
+    container_name: kurs_project_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    env_file:
+      - .env
+    networks:
+      - main_network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8000"
+
+  # 4. Celery Worker
+  celery:
+    build: .
+    container_name: kurs_project_celery
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - main_network
+    depends_on:
+      - web
+      - redis
+      - db
+    command: celery -A config worker --loglevel=info
+
+  # 5. Celery Beat
+  celery-beat:
+    build: .
+    container_name: kurs_project_beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - main_network
+    depends_on:
+      - web
+      - redis
+      - db
+    command: celery -A config beat --loglevel=info
+
+  # 6. Nginx
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: kurs_project_nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - static_volume:/app/static
+      - media_volume:/app/media
+    ports:
+      - "80:80"
+    networks:
+      - main_network
+    depends_on:
+      - web
+
+networks:
+  main_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
